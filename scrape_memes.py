@@ -17,20 +17,48 @@ reddit = praw.Reddit(
 # 🔹 Google Vision Client
 vision_client = vision.ImageAnnotatorClient()
 
-# 🔹 Fetch Memes from r/memes
+# 🔹 Fetch Subreddit Rules to Check for Repost Policy
+def check_subreddit_rules(subreddit_name):
+    """Fetch subreddit rules and check if reposting is allowed."""
+    subreddit = reddit.subreddit(subreddit_name)
+    
+    try:
+        rules = subreddit.rules()
+        for rule in rules:
+            rule_text = rule['description'].lower()
+
+            # Check for keywords that indicate reposting is NOT allowed
+            if any(term in rule_text for term in ["no reposts", "original content only", "no reuploads"]):
+                print(f"❌ Subreddit {subreddit_name} does not allow reposts!")
+                return False  # ❌ Skip this subreddit
+
+        print(f"✅ Subreddit {subreddit_name} allows reposting.")
+        return True  # ✅ Okay to scrape memes
+
+    except Exception as e:
+        print(f"⚠️ Could not fetch rules for {subreddit_name}: {e}")
+        return True  # Assume okay if we can't fetch rules
+
+# 🔹 Fetch Memes from Multiple Subreddits
 def fetch_memes():
-    subreddit = reddit.subreddit("memes")
+    subreddits = ["memes", "dankmemes", "wholesomememes"]
     memes = []
-    
-    for submission in subreddit.hot(limit=20):
-        if not submission.stickied and submission.url.endswith(("jpg", "png")):
-            memes.append({
-                "title": submission.title,
-                "url": submission.url,
-                "author": submission.author.name,
-                "permalink": f"https://reddit.com{submission.permalink}"
-            })
-    
+
+    for subreddit_name in subreddits:
+        if not check_subreddit_rules(subreddit_name):
+            print(f"🚨 Skipping {subreddit_name} due to subreddit rules.")
+            continue
+
+        subreddit = reddit.subreddit(subreddit_name)
+        for submission in subreddit.hot(limit=20):
+            if not submission.stickied and submission.url.endswith(("jpg", "png")):
+                memes.append({
+                    "title": submission.title,
+                    "url": submission.url,
+                    "author": submission.author.name,
+                    "permalink": f"https://reddit.com{submission.permalink}"
+                })
+
     return memes
 
 # 🔹 Check Watermarks Using OCR
