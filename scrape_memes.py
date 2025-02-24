@@ -13,6 +13,15 @@ reddit = praw.Reddit(
     client_secret=os.getenv("REDDIT_CLIENT_SECRET"),
     user_agent=os.getenv("REDDIT_USER_AGENT")
 )
+# 🔹 Debug Print (Masked)
+print(f"🔍 Debugging API Keys:")
+print(f"CLIENT_ID: {client_id[:4]}********" if client_id else "❌ CLIENT_ID is missing!")
+print(f"CLIENT_SECRET: ********" if client_secret else "❌ CLIENT_SECRET is missing!")
+print(f"USER_AGENT: {user_agent}" if user_agent else "❌ USER_AGENT is missing!")
+
+# 🔹 Ensure `user_agent` is set
+if not user_agent:
+    raise ValueError("❌ ERROR: `REDDIT_USER_AGENT` is missing! Set it in GitHub Secrets.")
 
 # 🔹 Google Vision Client
 vision_client = vision.ImageAnnotatorClient()
