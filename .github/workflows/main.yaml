@@ -3,7 +3,7 @@ name: Meme Bot
 on:
   schedule:
     - cron: "0 * * * *"  # 🔹 Runs EVERY HOUR (posting)
-    - cron: "0 0 * * *"  # 🔹 Runs ONCE A DAY (scraping)
+    - cron: "0 12 * * *"  # 🔹 Runs ONCE A DAY (scraping)
   workflow_dispatch:  # Allow manual trigger
 
 jobs:
