@@ -29,9 +29,12 @@ jobs:
 
       - name: Commit Memes for Review
         run: |
-          git add memes_for_review.json
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git pull --rebase origin main
+          git add memes_for_review.json || echo "No file to add"
           git commit -m "Updated memes for review" || echo "No changes to commit"
-          git push origin main
+          git push origin main || echo "No changes to push"
 
   post-meme:
     runs-on: ubuntu-latest
