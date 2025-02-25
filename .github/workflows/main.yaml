@@ -20,7 +20,12 @@ jobs:
           pip install praw tweepy requests pillow pytesseract python-dotenv
       
       - name: Scrape & Verify Memes
+        env:
+          REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
+          REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
+          REDDIT_USER_AGENT: ${{ secrets.REDDIT_USER_AGENT }}
         run: python scrape_memes.py
+
 
       - name: Commit Memes for Review
         run: |
