@@ -54,11 +54,11 @@ def post_meme():
     img.save("meme.jpg")
 
     # 🔹 Upload media using `API`
-    media = api.media_upload(filename="meme.jpg")
+    '''media = api.media_upload(filename="meme.jpg")
 
     # 🔹 Remove Reddit Link & Only Tweet Title
     tweet_text = f"{meme['title']}"  # ✅ Removed 🔗 Source: {meme['permalink']}
-    tweet = client.create_tweet(text=tweet_text, media_ids=[media.media_id_string])
+    tweet = client.create_tweet(text=tweet_text, media_ids=[media.media_id_string])'''
 
     print(f"✅ Meme posted: {tweet.data}")
 
