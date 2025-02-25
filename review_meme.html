@@ -5,157 +5,200 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Review Memes</title>
     <style>
+        /* General Styles */
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Arial', sans-serif;
+            background-color: #f8f9fa;
             text-align: center;
-            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
         }
         .container {
-            max-width: 900px;
-            margin: 20px auto;
+            max-width: 1100px;
+            margin: 30px auto;
             padding: 20px;
             background: white;
-            border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
         }
+        h1 {
+            color: #343a40;
+            font-size: 28px;
+            margin-bottom: 20px;
+        }
+
+        /* Buttons */
+        .button-group {
+            margin-bottom: 20px;
+        }
+        button {
+            padding: 12px 18px;
+            font-size: 14px;
+            border: none;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+            margin: 5px;
+        }
+        .approve { background-color: #28a745; color: white; }
+        .reject { background-color: #dc3545; color: white; }
+        .move { background-color: #007bff; color: white; }
+        .repost { background-color: #ff9800; color: white; }
+
+        button:hover {
+            opacity: 0.8;
+            transform: scale(1.05);
+        }
+
+        /* Meme Container */
         .meme-container {
-            display: flex;
-            flex-wrap: wrap;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 15px;
             justify-content: center;
+            margin-top: 20px;
         }
+
         .meme {
-            margin: 10px;
-            padding: 10px;
-            border: 1px solid #ddd;
             background: white;
+            padding: 15px;
             border-radius: 10px;
-            width: 280px;
-            box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            text-align: center;
         }
         img {
             max-width: 100%;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+        p {
+            font-size: 14px;
+            color: #333;
+            font-weight: bold;
+        }
+
+        /* Input Fields */
+        input {
+            width: 90%;
+            padding: 8px;
+            border: 1px solid #ccc;
             border-radius: 5px;
-        }
-        button {
-            margin-top: 10px;
-            padding: 10px;
-            background: #28a745;
-            color: white;
-            border: none;
-            cursor: pointer;
-            border-radius: 5px;
-        }
-        button.reject {
-            background: #dc3545;
-        }
-        button.move {
-            background: #007bff;
+            margin-top: 5px;
         }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Review Memes</h1>
-        <div>
-            <button onclick="viewMemeList('memes_for_review.json')">For Review</button>
-            <button onclick="viewMemeList('approved_memes.json')">Approved</button>
-            <button onclick="viewMemeList('rejected_memes.json')">Rejected</button>
-            <button onclick="viewMemeList('already_posted_memes.json')">Posted</button>
+        <div class="button-group">
+            <button onclick="viewMemeList('memes_for_review.json')" class="move">For Review</button>
+            <button onclick="viewMemeList('approved_memes.json')" class="approve">Approved</button>
+            <button onclick="viewMemeList('rejected_memes.json')" class="reject">Rejected</button>
+            <button onclick="viewMemeList('already_posted_memes.json')" class="repost">Posted</button>
         </div>
         <div class="meme-container" id="memeContainer"></div>
-        <button onclick="saveApprovedMemes()">Save Approved & Rejected Memes</button>
     </div>
 
     <script>
-        const GITHUB_USERNAME = "QuantumAutoForge";  // 🔹 Change this to your GitHub username
-        const REPO_NAME = "EverydayMemeVortex";  // 🔹 Change this to your repository name
-        let memes = [];
-        let approvedMemes = [];
-        let rejectedMemes = [];
+        const GITHUB_USERNAME = "QuantumAutoForge";  
+        const REPO_NAME = "EverydayMemeVortex";  
+        const GITHUB_TOKEN = localStorage.getItem("github_token") || prompt("Enter GitHub Personal Access Token:");
+        localStorage.setItem("github_token", GITHUB_TOKEN);
 
-        // 🔹 Load memes for review
-        function viewMemeList(filename) {
-            fetch(filename)
-                .then(response => response.json())
-                .then(data => {
-                    memes = data;
-                    displayMemes();
-                })
-                .catch(() => alert(`❌ Failed to load ${filename}. Make sure it exists.`));
+        let memes = [];
+
+        async function viewMemeList(filename) {
+            try {
+                const response = await fetch(`https://raw.githubusercontent.com/${GITHUB_USERNAME}/${REPO_NAME}/main/${filename}`);
+                if (!response.ok) throw new Error("Failed to fetch file");
+                memes = await response.json();
+                displayMemes(filename);
+            } catch (error) {
+                alert(`❌ Failed to load ${filename}. Make sure it exists.`);
+            }
         }
 
-        function displayMemes() {
+        function displayMemes(filename) {
             const container = document.getElementById("memeContainer");
             container.innerHTML = "";
+
             memes.forEach((meme, index) => {
                 const memeDiv = document.createElement("div");
                 memeDiv.className = "meme";
                 memeDiv.innerHTML = `
                     <img src="${meme.url}" alt="Meme">
                     <p>${meme.title}</p>
-                    <input type="checkbox" id="meme-${index}" onchange="toggleApproval(${index})"> Approve
-                    <button class="reject" onclick="rejectMeme(${index})">Reject</button>
-                    <button class="move" onclick="moveToApproved(${index})">Move to Approved</button>
                 `;
+
+                if (filename === "memes_for_review.json") {
+                    memeDiv.innerHTML += `
+                        <button class="approve" onclick="approveMeme(${index})">Approve</button>
+                        <button class="reject" onclick="rejectMeme(${index})">Reject</button>
+                    `;
+                } else if (filename === "approved_memes.json") {
+                    memeDiv.innerHTML += `
+                        <button class="move" onclick="moveToReview(${index})">Move to Review</button>
+                        <button class="reject" onclick="rejectMeme(${index})">Reject</button>
+                    `;
+                } else if (filename === "rejected_memes.json") {
+                    memeDiv.innerHTML += `
+                        <button class="move" onclick="moveToReview(${index})">Move to Review</button>
+                        <button class="approve" onclick="approveMeme(${index})">Approve</button>
+                    `;
+                } else if (filename === "already_posted_memes.json") {
+                    memeDiv.innerHTML += `
+                        <input type="text" id="caption-${index}" placeholder="Enter new caption">
+                        <button class="repost" onclick="repostMeme(${index})">Repost</button>
+                    `;
+                }
+
                 container.appendChild(memeDiv);
             });
         }
 
-        function toggleApproval(index) {
-            const meme = memes[index];
-            if (approvedMemes.some(m => m.id === meme.id)) {
-                approvedMemes = approvedMemes.filter(m => m.id !== meme.id);
-            } else {
-                approvedMemes.push(meme);
-            }
+        function approveMeme(index) {
+            moveMeme(index, "memes_for_review.json", "approved_memes.json");
         }
 
         function rejectMeme(index) {
-            rejectedMemes.push(memes[index]);
-            memes.splice(index, 1);
-            displayMemes();
+            moveMeme(index, "memes_for_review.json", "rejected_memes.json");
         }
 
-        async function saveApprovedMemes() {
-            let token = localStorage.getItem("github_token");
-
-            if (!token) {
-                token = prompt("Enter your GitHub Personal Access Token:");
-                if (!token) {
-                    alert("❌ GitHub Token is required to save memes!");
-                    return;
-                }
-                localStorage.setItem("github_token", token);
-            }
-
-            await saveToGitHub("approved_memes.json", approvedMemes, token);
-            await saveToGitHub("rejected_memes.json", rejectedMemes, token);
-            await saveToGitHub("memes_for_review.json", memes, token);
-
-            alert("✅ Approved & Rejected memes updated!");
+        function moveToReview(index) {
+            moveMeme(index, "approved_memes.json", "memes_for_review.json");
         }
 
-        async function moveToApproved(index) {
-            let token = localStorage.getItem("github_token");
-            if (!token) {
-                alert("❌ GitHub Token is required!");
-                return;
-            }
-
-            let approvedMemes = await getJsonFromGitHub("approved_memes.json", token);
-            approvedMemes.push(memes[index]);
-
-            await saveToGitHub("approved_memes.json", approvedMemes, token);
-            alert("✅ Meme moved back to Approved Memes!");
+        function repostMeme(index) {
+            const caption = document.getElementById(`caption-${index}`).value;
+            memes[index]["caption"] = caption;
+            moveMeme(index, "already_posted_memes.json", "approved_memes.json");
         }
 
-        async function saveToGitHub(filename, data, token) {
+        async function moveMeme(index, fromFile, toFile) {
+            let fromMemes = await getJsonFromGitHub(fromFile);
+            let toMemes = await getJsonFromGitHub(toFile);
+
+            let meme = fromMemes.splice(index, 1)[0];
+            toMemes.push(meme);
+
+            await saveToGitHub(fromFile, fromMemes);
+            await saveToGitHub(toFile, toMemes);
+            alert("✅ Meme moved successfully!");
+            viewMemeList(fromFile);
+        }
+
+        async function getJsonFromGitHub(filename) {
+            const response = await fetch(`https://raw.githubusercontent.com/${GITHUB_USERNAME}/${REPO_NAME}/main/${filename}`);
+            return response.ok ? await response.json() : [];
+        }
+
+        async function saveToGitHub(filename, data) {
             const fileUrl = `https://api.github.com/repos/${GITHUB_USERNAME}/${REPO_NAME}/contents/${filename}`;
             const base64Content = btoa(unescape(encodeURIComponent(JSON.stringify(data, null, 4))));
 
             let sha = null;
             const getResponse = await fetch(fileUrl, {
-                headers: { "Authorization": `token ${token}` }
+                headers: { "Authorization": `token ${GITHUB_TOKEN}` }
             });
 
             if (getResponse.ok) {
@@ -166,7 +209,7 @@
             await fetch(fileUrl, {
                 method: "PUT",
                 headers: {
-                    "Authorization": `token ${token}`,
+                    "Authorization": `token ${GITHUB_TOKEN}`,
                     "Content-Type": "application/json"
                 },
                 body: JSON.stringify({
@@ -179,3 +222,4 @@
     </script>
 </body>
 </html>
+
