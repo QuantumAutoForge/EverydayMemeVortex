@@ -108,26 +108,28 @@
         let memes = [];
 
         async function viewMemeList(filename) {
-            try {
-                const cacheBuster = new Date().getTime(); // Add a timestamp to prevent caching
-                const url = `https://raw.githubusercontent.com/${GITHUB_USERNAME}/${REPO_NAME}/main/${filename}?timestamp=${cacheBuster}`;
+    try {
+        const url = `https://api.github.com/repos/${GITHUB_USERNAME}/${REPO_NAME}/contents/${filename}?timestamp=${new Date().getTime()}`;
 
-                const response = await fetch(url, {
-                    headers: {
-                        "Cache-Control": "no-cache, no-store, must-revalidate",
-                        "Pragma": "no-cache",
-                        "Expires": "0"
-                    }
-                });
-
-                if (!response.ok) throw new Error("Failed to fetch file");
-        
-                memes = await response.json();
-                displayMemes(filename);
-            } catch (error) {
-                alert(`❌ Failed to load ${filename}. Make sure it exists.`);
+        const response = await fetch(url, {
+            headers: {
+                "Authorization": `token ${GITHUB_TOKEN}`,
+                "Accept": "application/vnd.github.v3.raw"
             }
+        });
+
+        if (!response.ok) {
+            throw new Error(`GitHub API Error: ${response.status} ${response.statusText}`);
         }
+
+        memes = await response.json();
+        displayMemes(filename);
+    } catch (error) {
+        console.error("❌ Error loading file:", error);
+        alert(`❌ Failed to load ${filename}. Make sure it exists.`);
+    }
+}
+
 
 
         function displayMemes(filename) {
