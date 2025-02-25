@@ -16,24 +16,17 @@
     <h1>Review Memes</h1>
     <div class="meme-container" id="memeContainer"></div>
     <button onclick="saveApprovedMemes()">Save Approved Memes</button>
-
+    
     <script>
-        const GITHUB_USERNAME = "QuantumAutoForge";  // 🔹 Change this to your GitHub username
-        const REPO_NAME = "EverydayMemeVortex";  // 🔹 Change this to your repository name
-        const FILE_PATH = "approved_memes.json";
-        const API_URL = `https://api.github.com/repos/${GITHUB_USERNAME}/${REPO_NAME}/contents/${FILE_PATH}`;
-
         let memes = [];
         let approvedMemes = [];
+        let rejectedMemes = [];
 
-        // 🔹 Load memes for review from GitHub
-        fetch("memes_for_review.json")
-            .then(response => response.json())
-            .then(data => {
-                memes = data;
-                displayMemes();
-            })
-            .catch(() => alert("❌ Failed to load memes. Make sure 'memes_for_review.json' exists in your repo."));
+        async function loadMemes() {
+            const response = await fetch("memes_for_review.json");
+            memes = await response.json();
+            displayMemes();
+        }
 
         function displayMemes() {
             const container = document.getElementById("memeContainer");
@@ -44,68 +37,54 @@
                 memeDiv.innerHTML = `
                     <img src="${meme.url}" alt="Meme">
                     <p>${meme.title}</p>
-                    <input type="checkbox" id="meme-${index}" onchange="toggleApproval(${index})"> Approve
+                    <button onclick="approveMeme(${index})">Approve</button>
+                    <button onclick="rejectMeme(${index})">Reject</button>
                 `;
                 container.appendChild(memeDiv);
             });
         }
 
-        function toggleApproval(index) {
-            const meme = memes[index];
-            if (approvedMemes.some(m => m.id === meme.id)) {
-                approvedMemes = approvedMemes.filter(m => m.id !== meme.id);
-            } else {
-                approvedMemes.push(meme);
-            }
+        function approveMeme(index) {
+            approvedMemes.push(memes[index]);
+            memes.splice(index, 1);
+            displayMemes();
+        }
+
+        function rejectMeme(index) {
+            rejectedMemes.push(memes[index]);
+            memes.splice(index, 1);
+            displayMemes();
         }
 
         async function saveApprovedMemes() {
-            let token = localStorage.getItem("github_token");
+            await saveToGitHub("approved_memes.json", approvedMemes);
+            await saveToGitHub("rejected_memes.json", rejectedMemes);
+            await saveToGitHub("memes_for_review.json", memes);
+            alert("✅ Memes updated!");
+        }
 
+        async function saveToGitHub(filename, data) {
+            const token = prompt("Enter your GitHub Token:");
             if (!token) {
-                token = prompt("Enter your GitHub Personal Access Token:");
-                if (!token) {
-                    alert("❌ GitHub Token is required to save memes!");
-                    return;
-                }
-                localStorage.setItem("github_token", token);  // 🔹 Save token for future use
+                alert("❌ GitHub Token required!");
+                return;
             }
-
-            const approvedMemesJson = JSON.stringify(approvedMemes, null, 4);
-            const base64Content = btoa(unescape(encodeURIComponent(approvedMemesJson)));
-
-            // 🔹 Step 1: Get the SHA of the Existing File (Needed for Updates)
-            let sha = null;
-            const getResponse = await fetch(API_URL, {
-                headers: { "Authorization": `token ${token}` }
-            });
-
-            if (getResponse.ok) {
-                const data = await getResponse.json();
-                sha = data.sha;
-            }
-
-            // 🔹 Step 2: Upload the New `approved_memes.json`
-            const response = await fetch(API_URL, {
+            const base64Content = btoa(unescape(encodeURIComponent(JSON.stringify(data, null, 4))));
+            const response = await fetch(`https://api.github.com/repos/YOUR_GITHUB_USER/YOUR_REPO/contents/${filename}`, {
                 method: "PUT",
                 headers: {
                     "Authorization": `token ${token}`,
                     "Content-Type": "application/json"
                 },
                 body: JSON.stringify({
-                    message: "Updated approved memes",
-                    content: base64Content,
-                    sha: sha
+                    message: `Updated ${filename}`,
+                    content: base64Content
                 })
             });
-
-            if (response.ok) {
-                alert("✅ Approved memes saved to GitHub!");
-            } else {
-                alert("❌ Error saving memes to GitHub! Check token permissions.");
-                localStorage.removeItem("github_token");  // 🔹 Remove token if it fails (wrong token)
-            }
+            if (response.ok) alert("✅ File updated successfully!");
         }
+
+        loadMemes();
     </script>
 </body>
 </html>
