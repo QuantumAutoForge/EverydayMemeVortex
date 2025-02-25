@@ -8,6 +8,7 @@ import random
 from datetime import datetime
 
 POSTED_MEMES_FILE = "already_posted_memes.json"
+APPROVED_MEMES_FILE = "approved_memes.json"
 
 # 🔹 Twitter API Setup
 client = tweepy.Client(
@@ -37,7 +38,7 @@ def save_json(filename, data):
         json.dump(data, f, indent=4)
 
 def post_meme():
-    approved_memes = load_json("approved_memes.json")
+    approved_memes = load_json(APPROVED_MEMES_FILE)
     posted_memes = load_json(POSTED_MEMES_FILE)
 
     if not approved_memes:
@@ -55,8 +56,8 @@ def post_meme():
     # 🔹 Upload media using `API`
     media = api.media_upload(filename="meme.jpg")
 
-    # 🔹 Post Tweet using `Client`
-    tweet_text = f"{meme['title']}\n\n🔗 Source: {meme['permalink']}"
+    # 🔹 Remove Reddit Link & Only Tweet Title
+    tweet_text = f"{meme['title']}"  # ✅ Removed 🔗 Source: {meme['permalink']}
     tweet = client.create_tweet(text=tweet_text, media_ids=[media.media_id_string])
 
     print(f"✅ Meme posted: {tweet.data}")
@@ -64,21 +65,24 @@ def post_meme():
     # 🔹 Move posted meme to `already_posted_memes.json` with timestamp
     meme["posted_on"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     posted_memes.append(meme)
-    approved_memes.remove(meme)
 
-    # 🔹 Save updated meme lists
+    # 🔹 Remove meme from approved list & Save Both Files
+    approved_memes = [m for m in approved_memes if m["id"] != meme["id"]]
+
     save_json(POSTED_MEMES_FILE, posted_memes)
-    save_json("approved_memes.json", approved_memes)
+    save_json(APPROVED_MEMES_FILE, approved_memes)  # ✅ Ensure updated list is saved
+
+    print(f"✅ Meme moved to {POSTED_MEMES_FILE} with timestamp & removed from {APPROVED_MEMES_FILE}")
 
 def move_meme_back_to_approved(meme_id):
     """ Moves a meme from `already_posted_memes.json` back to `approved_memes.json` for reposting """
-    approved_memes = load_json("approved_memes.json")
+    approved_memes = load_json(APPROVED_MEMES_FILE)
     posted_memes = load_json(POSTED_MEMES_FILE)
 
     meme = next((m for m in posted_memes if m["id"] == meme_id), None)
     if meme:
         approved_memes.append(meme)
-        save_json("approved_memes.json", approved_memes)
+        save_json(APPROVED_MEMES_FILE, approved_memes)
         print(f"✅ Meme {meme_id} moved back to Approved Memes for reposting.")
     else:
         print(f"❌ Meme {meme_id} not found in Posted Memes.")
