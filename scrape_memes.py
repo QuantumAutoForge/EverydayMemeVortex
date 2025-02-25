@@ -6,99 +6,101 @@ import pytesseract
 from PIL import Image
 from io import BytesIO
 from google.cloud import vision
+from dotenv import load_dotenv
 
-# 🔹 Reddit API Credentials
+load_dotenv()
+
+# 🔹 Set up Reddit API
 reddit = praw.Reddit(
     client_id=os.getenv("REDDIT_CLIENT_ID"),
     client_secret=os.getenv("REDDIT_CLIENT_SECRET"),
     user_agent=os.getenv("REDDIT_USER_AGENT")
 )
-# 🔹 Debug Print (Masked)
-print(f"🔍 Debugging API Keys:")
-print(f"CLIENT_ID: {client_id[:4]}********" if client_id else "❌ CLIENT_ID is missing!")
-print(f"CLIENT_SECRET: ********" if client_secret else "❌ CLIENT_SECRET is missing!")
-print(f"USER_AGENT: {user_agent}" if user_agent else "❌ USER_AGENT is missing!")
 
-# 🔹 Ensure `user_agent` is set
-if not user_agent:
-    raise ValueError("❌ ERROR: `REDDIT_USER_AGENT` is missing! Set it in GitHub Secrets.")
-
-# 🔹 Google Vision Client
+# 🔹 Initialize Google Vision API
 vision_client = vision.ImageAnnotatorClient()
+print("✅ Google Vision API connected successfully!")
 
-# 🔹 Fetch Subreddit Rules to Check for Repost Policy
+# 🔹 Load existing posted memes
+POSTED_MEMES_FILE = "posted_memes.json"
+
+def load_posted_memes():
+    if os.path.exists(POSTED_MEMES_FILE):
+        with open(POSTED_MEMES_FILE, "r") as f:
+            return set(json.load(f))
+    return set()
+
+def save_posted_memes(memes):
+    with open(POSTED_MEMES_FILE, "w") as f:
+        json.dump(list(memes), f, indent=4)
+
+# 🔹 Check subreddit repost policy
 def check_subreddit_rules(subreddit_name):
-    """Fetch subreddit rules and check if reposting is allowed."""
-    subreddit = reddit.subreddit(subreddit_name)
-    
     try:
-        rules = subreddit.rules()
-        for rule in rules:
-            rule_text = rule['description'].lower()
-
-            # Check for keywords that indicate reposting is NOT allowed
-            if any(term in rule_text for term in ["no reposts", "original content only", "no reuploads"]):
-                print(f"❌ Subreddit {subreddit_name} does not allow reposts!")
-                return False  # ❌ Skip this subreddit
-
-        print(f"✅ Subreddit {subreddit_name} allows reposting.")
-        return True  # ✅ Okay to scrape memes
-
+        subreddit = reddit.subreddit(subreddit_name)
+        rules = [rule.description.lower() for rule in subreddit.rules]
+        return not any(term in rules for term in ["no reposts", "original content only", "no reuploads"])
     except Exception as e:
         print(f"⚠️ Could not fetch rules for {subreddit_name}: {e}")
-        return True  # Assume okay if we can't fetch rules
+        return True  # Assume okay if rules cannot be fetched
 
-# 🔹 Fetch Memes from Multiple Subreddits
+# 🔹 Fetch memes
 def fetch_memes():
     subreddits = ["memes", "dankmemes", "wholesomememes"]
     memes = []
 
     for subreddit_name in subreddits:
         if not check_subreddit_rules(subreddit_name):
-            print(f"🚨 Skipping {subreddit_name} due to subreddit rules.")
             continue
 
         subreddit = reddit.subreddit(subreddit_name)
-        for submission in subreddit.hot(limit=20):
-            if not submission.stickied and submission.url.endswith(("jpg", "png")):
-                memes.append({
-                    "title": submission.title,
-                    "url": submission.url,
-                    "author": submission.author.name,
-                    "permalink": f"https://reddit.com{submission.permalink}"
-                })
+        for submission in subreddit.hot(limit=50):
+            if len(memes) >= 10:  # Collect only 10 verified memes
+                break
+            if submission.stickied or not submission.url.endswith(("jpg", "png")):
+                continue
+
+            memes.append({
+                "id": submission.id,
+                "title": submission.title,
+                "url": submission.url,
+                "author": submission.author.name if submission.author else "unknown",
+                "permalink": f"https://reddit.com{submission.permalink}"
+            })
 
     return memes
 
-# 🔹 Check Watermarks Using OCR
+# 🔹 Check watermarks using OCR
 def check_watermark(image_url):
     response = requests.get(image_url)
     img = Image.open(BytesIO(response.content))
     text = pytesseract.image_to_string(img).lower()
     
-    # Keywords that indicate copyright issues
     banned_keywords = ["instagram", "tiktok", "©", "all rights reserved"]
     return not any(word in text for word in banned_keywords)
 
-# 🔹 Check for Faces/Logos Using Google Vision API
+# 🔹 Check meme content for faces/logos
 def check_meme_content(image_url):
     image = vision.Image()
     image.source.image_uri = image_url
 
-    # Detect faces (personal images)
     faces = vision_client.face_detection(image=image).face_annotations
-    if faces:
-        return False  # ❌ Avoid personal photos
-
-    # Detect logos (brands)
     logos = vision_client.logo_detection(image=image).logo_annotations
-    return not logos  # ❌ Avoid brand-related memes
 
-# 🔹 Store Verified Memes
+    return not faces and not logos  # ✅ Must not contain faces/logos
+
+# 🔹 Save memes & prevent reposting
 def save_verified_memes(memes):
-    with open("memes.json", "w") as f:
-        json.dump(memes, f, indent=4)
-    print(f"✅ {len(memes)} memes saved!")
+    posted_memes = load_posted_memes()
+    verified_memes = [meme for meme in memes if meme["id"] not in posted_memes]
+
+    if verified_memes:
+        with open("memes.json", "w") as f:
+            json.dump(verified_memes, f, indent=4)
+        print(f"✅ {len(verified_memes)} verified memes saved!")
+
+    posted_memes.update(meme["id"] for meme in verified_memes)
+    save_posted_memes(posted_memes)
 
 # 🔹 Main Execution
 if __name__ == "__main__":
@@ -106,16 +108,11 @@ if __name__ == "__main__":
     verified_memes = []
 
     for meme in memes:
-        print(f"🔍 Checking meme: {meme['title']}")
-        
         if not check_watermark(meme["url"]):
-            print(f"❌ Skipping {meme['title']} - Watermark detected!")
             continue
-
         if not check_meme_content(meme["url"]):
-            print(f"❌ Skipping {meme['title']} - Contains brand logos or personal images!")
             continue
-
         verified_memes.append(meme)
 
     save_verified_memes(verified_memes)
+
