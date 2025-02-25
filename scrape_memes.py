@@ -19,36 +19,53 @@ reddit = praw.Reddit(
 # 🔹 Load existing posted memes
 POSTED_MEMES_FILE = "posted_memes.json"
 
+def load_json(filename):
+    if os.path.exists(filename):
+        with open(filename, "r") as f:
+            return json.load(f)
+    return []
+
+def save_json(filename, data):
+    with open(filename, "w") as f:
+        json.dump(data, f, indent=4)
+
 def load_posted_memes():
-    if os.path.exists(POSTED_MEMES_FILE):
-        with open(POSTED_MEMES_FILE, "r") as f:
-            return set(json.load(f))
-    return set()
+    return set(load_json(POSTED_MEMES_FILE))
 
 def save_posted_memes(memes):
-    with open(POSTED_MEMES_FILE, "w") as f:
-        json.dump(list(memes), f, indent=4)
+    save_json(POSTED_MEMES_FILE, list(memes))
 
-# 🔹 Fetch memes
+# 🔹 Fetch memes from past year & prevent duplicates
 def fetch_memes():
     subreddits = ["memes", "dankmemes", "wholesomememes"]
     memes = []
+    
+    approved_memes = load_json("approved_memes.json")
+    rejected_memes = load_json("rejected_memes.json")
+    already_posted_memes = load_posted_memes()
+    existing_memes = load_json("memes_for_review.json")  # Keep already scraped memes
 
     for subreddit_name in subreddits:
         subreddit = reddit.subreddit(subreddit_name)
-        for submission in subreddit.hot(limit=50):
-            if len(memes) >= 10:  # Collect only 10 verified memes
+        for submission in subreddit.top(time_filter="year", limit=50):  # 🔹 Get top memes from past year
+            if len(memes) >= 10:
                 break
             if submission.stickied or not submission.url.endswith(("jpg", "png")):
                 continue
 
-            memes.append({
+            meme = {
                 "id": submission.id,
                 "title": submission.title,
                 "url": submission.url,
                 "author": submission.author.name if submission.author else "unknown",
                 "permalink": f"https://reddit.com{submission.permalink}"
-            })
+            }
+
+            # 🔹 Skip meme if already in approved, rejected, posted, or review list
+            if meme["url"] in [m["url"] for m in approved_memes + rejected_memes + existing_memes] or meme["url"] in already_posted_memes:
+                continue
+
+            memes.append(meme)
 
     return memes
 
@@ -61,14 +78,16 @@ def check_watermark(image_url):
     banned_keywords = ["instagram", "tiktok", "©", "all rights reserved"]
     return not any(word in text for word in banned_keywords)
 
-# 🔹 Save memes for manual review
+# 🔹 Append new memes instead of overwriting
 def save_memes_for_review(memes):
-    with open("memes_for_review.json", "w") as f:
-        json.dump(memes, f, indent=4)
-    print(f"✅ {len(memes)} memes saved for review!")
+    existing_memes = load_json("memes_for_review.json")
+    new_memes = existing_memes + memes  # 🔹 Append instead of overwriting
+    save_json("memes_for_review.json", new_memes)
+    print(f"✅ {len(new_memes)} memes now available for review!")
 
 # 🔹 Main Execution
 if __name__ == "__main__":
     memes = fetch_memes()
     verified_memes = [meme for meme in memes if check_watermark(meme["url"])]
     save_memes_for_review(verified_memes)
+
