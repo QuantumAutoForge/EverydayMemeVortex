@@ -46,5 +46,9 @@ jobs:
       - name: Checkout Repo
         uses: actions/checkout@v4
 
+      - name: Install Dependencies
+        run: |
+          pip install praw tweepy requests pillow python-dotenv pytesseract
+
       - name: Post Meme
         run: python post_meme.py
