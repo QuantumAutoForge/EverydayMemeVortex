@@ -31,10 +31,13 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git stash  # Stash any unstaged changes
           git pull --rebase origin main
-          git add memes_for_review.json || echo "No file to add"
+          git stash pop || echo "No stashed changes to apply"
+          git add memes_for_review.json
           git commit -m "Updated memes for review" || echo "No changes to commit"
           git push origin main || echo "No changes to push"
+
 
   post-meme:
     runs-on: ubuntu-latest
