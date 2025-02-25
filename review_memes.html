@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Review Memes</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; }
+        .meme-container { display: flex; flex-wrap: wrap; justify-content: center; }
+        .meme { margin: 10px; padding: 10px; border: 1px solid #ddd; width: 300px; }
+        img { max-width: 100%; }
+        button { margin-top: 10px; padding: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Review Memes</h1>
+    <div class="meme-container" id="memeContainer"></div>
+    <button onclick="saveApprovedMemes()">Save Approved Memes</button>
+
+    <script>
+        let memes = [];
+        let approvedMemes = [];
+
+        fetch('memes_for_review.json')
+            .then(response => response.json())
+            .then(data => {
+                memes = data;
+                displayMemes();
+            });
+
+        function displayMemes() {
+            const container = document.getElementById('memeContainer');
+            container.innerHTML = '';
+            memes.forEach((meme, index) => {
+                const memeDiv = document.createElement('div');
+                memeDiv.className = 'meme';
+                memeDiv.innerHTML = `
+                    <img src="${meme.url}" alt="Meme">
+                    <p>${meme.title}</p>
+                    <input type="checkbox" id="meme-${index}" onchange="toggleApproval(${index})"> Approve
+                `;
+                container.appendChild(memeDiv);
+            });
+        }
+
+        function toggleApproval(index) {
+            const meme = memes[index];
+            if (approvedMemes.some(m => m.id === meme.id)) {
+                approvedMemes = approvedMemes.filter(m => m.id !== meme.id);
+            } else {
+                approvedMemes.push(meme);
+            }
+        }
+
+        function saveApprovedMemes() {
+            const blob = new Blob([JSON.stringify(approvedMemes, null, 4)], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'approved_memes.json';
+            a.click();
+        }
+    </script>
+</body>
+</html>
