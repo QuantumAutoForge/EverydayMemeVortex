@@ -109,14 +109,26 @@
 
         async function viewMemeList(filename) {
             try {
-                const response = await fetch(`https://raw.githubusercontent.com/${GITHUB_USERNAME}/${REPO_NAME}/main/${filename}`);
+                const cacheBuster = new Date().getTime(); // Add a timestamp to prevent caching
+                const url = `https://raw.githubusercontent.com/${GITHUB_USERNAME}/${REPO_NAME}/main/${filename}?timestamp=${cacheBuster}`;
+
+                const response = await fetch(url, {
+                    headers: {
+                        "Cache-Control": "no-cache, no-store, must-revalidate",
+                        "Pragma": "no-cache",
+                        "Expires": "0"
+                    }
+                });
+
                 if (!response.ok) throw new Error("Failed to fetch file");
+        
                 memes = await response.json();
                 displayMemes(filename);
             } catch (error) {
                 alert(`❌ Failed to load ${filename}. Make sure it exists.`);
             }
         }
+
 
         function displayMemes(filename) {
             const container = document.getElementById("memeContainer");
