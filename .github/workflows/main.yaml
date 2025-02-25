@@ -2,8 +2,8 @@ name: Meme Bot
 
 on:
   schedule:
-    - cron: "0 12 * * *"  # Scrape memes once per day
-    - cron: "0 13 * * *"  # Post meme once per day
+    - cron: "0 12 * * *"
+    - cron: "0 13 * * *"
   workflow_dispatch:
 
 jobs:
@@ -17,25 +17,15 @@ jobs:
         run: |
           sudo apt update
           sudo apt install -y tesseract-ocr
-          pip install praw tweepy requests pillow google-cloud-vision pytesseract python-dotenv
+          pip install praw tweepy requests pillow python-dotenv
       
-      - name: Create Google Cloud Credentials File
-        run: echo '${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}' > google-credentials.json
-
       - name: Scrape & Verify Memes
-        env:
-          REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
-          REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
-          REDDIT_USER_AGENT: ${{ secrets.REDDIT_USER_AGENT }}
-          GOOGLE_APPLICATION_CREDENTIALS: google-credentials.json
         run: python scrape_memes.py
 
-      - name: Commit & Push Memes
+      - name: Commit Memes for Review
         run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add memes.json posted_memes.json
-          git commit -m "Updated memes.json [GitHub Actions]" || echo "No changes to commit"
+          git add memes_for_review.json
+          git commit -m "Updated memes for review" || echo "No changes to commit"
           git push origin main
 
   post-meme:
@@ -45,14 +35,5 @@ jobs:
       - name: Checkout Repo
         uses: actions/checkout@v4
 
-      - name: Install Dependencies
-        run: pip install tweepy requests pillow
-
-      - name: Post Meme on Twitter
-        env:
-          TWITTER_API_KEY: ${{ secrets.TWITTER_API_KEY }}
-          TWITTER_API_SECRET: ${{ secrets.TWITTER_API_SECRET }}
-          TWITTER_ACCESS_TOKEN: ${{ secrets.TWITTER_ACCESS_TOKEN }}
-          TWITTER_ACCESS_SECRET: ${{ secrets.TWITTER_ACCESS_SECRET }}
+      - name: Post Meme
         run: python post_meme.py
-
