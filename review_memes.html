@@ -18,10 +18,16 @@
     <button onclick="saveApprovedMemes()">Save Approved Memes</button>
 
     <script>
+        const GITHUB_USERNAME = "your-username";  // 🔹 Change this to your GitHub username
+        const REPO_NAME = "your-repo";  // 🔹 Change this to your repository name
+        const FILE_PATH = "approved_memes.json";
+        const API_URL = `https://api.github.com/repos/${GITHUB_USERNAME}/${REPO_NAME}/contents/${FILE_PATH}`;
+        const TOKEN = "your-github-personal-access-token";  // 🔹 Add your GitHub token here
+
         let memes = [];
         let approvedMemes = [];
 
-        fetch('memes_for_review.json')
+        fetch("memes_for_review.json")
             .then(response => response.json())
             .then(data => {
                 memes = data;
@@ -29,11 +35,11 @@
             });
 
         function displayMemes() {
-            const container = document.getElementById('memeContainer');
-            container.innerHTML = '';
+            const container = document.getElementById("memeContainer");
+            container.innerHTML = "";
             memes.forEach((meme, index) => {
-                const memeDiv = document.createElement('div');
-                memeDiv.className = 'meme';
+                const memeDiv = document.createElement("div");
+                memeDiv.className = "meme";
                 memeDiv.innerHTML = `
                     <img src="${meme.url}" alt="Meme">
                     <p>${meme.title}</p>
@@ -52,12 +58,27 @@
             }
         }
 
-        function saveApprovedMemes() {
-            const blob = new Blob([JSON.stringify(approvedMemes, null, 4)], { type: 'application/json' });
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = 'approved_memes.json';
-            a.click();
+        async function saveApprovedMemes() {
+            const approvedMemesJson = JSON.stringify(approvedMemes, null, 4);
+            const base64Content = btoa(unescape(encodeURIComponent(approvedMemesJson)));
+
+            const response = await fetch(API_URL, {
+                method: "PUT",
+                headers: {
+                    "Authorization": `token ${TOKEN}`,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    message: "Updated approved memes",
+                    content: base64Content
+                })
+            });
+
+            if (response.ok) {
+                alert("✅ Approved memes saved to GitHub!");
+            } else {
+                alert("❌ Error saving memes to GitHub!");
+            }
         }
     </script>
 </body>
