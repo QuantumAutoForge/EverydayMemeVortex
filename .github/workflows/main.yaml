@@ -18,6 +18,9 @@ jobs:
           sudo apt update
           sudo apt install -y tesseract-ocr
           pip install praw tweepy requests pillow google-cloud-vision pytesseract python-dotenv
+      
+      - name: Create Google Cloud Credentials File
+        run: echo '${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}' > google-credentials.json
 
       - name: Scrape & Verify Memes
         env:
