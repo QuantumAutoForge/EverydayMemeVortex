@@ -4,10 +4,20 @@ import os
 import requests
 from PIL import Image
 from io import BytesIO
+import random
+from datetime import datetime
 
 POSTED_MEMES_FILE = "already_posted_memes.json"
 
-# Load Twitter API credentials from environment variables
+# 🔹 Twitter API Setup
+client = tweepy.Client(
+    consumer_key=os.getenv("TWITTER_API_KEY"),
+    consumer_secret=os.getenv("TWITTER_API_SECRET"),
+    access_token=os.getenv("TWITTER_ACCESS_TOKEN"),
+    access_token_secret=os.getenv("TWITTER_ACCESS_SECRET")
+)
+
+# 🔹 Tweepy v4+ Requires `API` for Media Upload
 auth = tweepy.OAuth1UserHandler(
     consumer_key=os.getenv("TWITTER_API_KEY"),
     consumer_secret=os.getenv("TWITTER_API_SECRET"),
@@ -34,21 +44,44 @@ def post_meme():
         print("❌ No approved memes left to post!")
         return
 
-    meme = approved_memes.pop(0)
+    # 🔹 Check if any meme is scheduled
+    scheduled_meme = next((m for m in approved_memes if m.get("scheduled", False)), None)
+    meme = scheduled_meme if scheduled_meme else random.choice(approved_memes)  # Pick scheduled meme or random one
+
     response = requests.get(meme["url"])
     img = Image.open(BytesIO(response.content))
     img.save("meme.jpg")
 
-    # Upload media
+    # 🔹 Upload media using `API`
     media = api.media_upload(filename="meme.jpg")
+
+    # 🔹 Post Tweet using `Client`
     tweet_text = f"{meme['title']}\n\n🔗 Source: {meme['permalink']}"
-    api.update_status(status=tweet_text, media_ids=[media.media_id_string])
+    tweet = client.create_tweet(text=tweet_text, media_ids=[media.media_id_string])
 
-    print("✅ Meme posted successfully!")
+    print(f"✅ Meme posted: {tweet.data}")
 
-    # Move meme to already_posted_memes.json
+    # 🔹 Move posted meme to `already_posted_memes.json` with timestamp
+    meme["posted_on"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     posted_memes.append(meme)
-    save_json("already_posted_memes.json", posted_memes)
+    approved_memes.remove(meme)
+
+    # 🔹 Save updated meme lists
+    save_json(POSTED_MEMES_FILE, posted_memes)
     save_json("approved_memes.json", approved_memes)
 
+def move_meme_back_to_approved(meme_id):
+    """ Moves a meme from `already_posted_memes.json` back to `approved_memes.json` for reposting """
+    approved_memes = load_json("approved_memes.json")
+    posted_memes = load_json(POSTED_MEMES_FILE)
+
+    meme = next((m for m in posted_memes if m["id"] == meme_id), None)
+    if meme:
+        approved_memes.append(meme)
+        save_json("approved_memes.json", approved_memes)
+        print(f"✅ Meme {meme_id} moved back to Approved Memes for reposting.")
+    else:
+        print(f"❌ Meme {meme_id} not found in Posted Memes.")
+
 post_meme()
+
