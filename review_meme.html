@@ -22,17 +22,18 @@
         const REPO_NAME = "EverydayMemeVortex";  // 🔹 Change this to your repository name
         const FILE_PATH = "approved_memes.json";
         const API_URL = `https://api.github.com/repos/${GITHUB_USERNAME}/${REPO_NAME}/contents/${FILE_PATH}`;
-        const TOKEN = "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";  // 🔹 Add your GitHub token here
 
         let memes = [];
         let approvedMemes = [];
 
+        // 🔹 Load memes for review from GitHub
         fetch("memes_for_review.json")
             .then(response => response.json())
             .then(data => {
                 memes = data;
                 displayMemes();
-            });
+            })
+            .catch(() => alert("❌ Failed to load memes. Make sure 'memes_for_review.json' exists in your repo."));
 
         function displayMemes() {
             const container = document.getElementById("memeContainer");
@@ -59,25 +60,50 @@
         }
 
         async function saveApprovedMemes() {
+            let token = localStorage.getItem("github_token");
+
+            if (!token) {
+                token = prompt("Enter your GitHub Personal Access Token:");
+                if (!token) {
+                    alert("❌ GitHub Token is required to save memes!");
+                    return;
+                }
+                localStorage.setItem("github_token", token);  // 🔹 Save token for future use
+            }
+
             const approvedMemesJson = JSON.stringify(approvedMemes, null, 4);
             const base64Content = btoa(unescape(encodeURIComponent(approvedMemesJson)));
 
+            // 🔹 Step 1: Get the SHA of the Existing File (Needed for Updates)
+            let sha = null;
+            const getResponse = await fetch(API_URL, {
+                headers: { "Authorization": `token ${token}` }
+            });
+
+            if (getResponse.ok) {
+                const data = await getResponse.json();
+                sha = data.sha;
+            }
+
+            // 🔹 Step 2: Upload the New `approved_memes.json`
             const response = await fetch(API_URL, {
                 method: "PUT",
                 headers: {
-                    "Authorization": `token ${TOKEN}`,
+                    "Authorization": `token ${token}`,
                     "Content-Type": "application/json"
                 },
                 body: JSON.stringify({
                     message: "Updated approved memes",
-                    content: base64Content
+                    content: base64Content,
+                    sha: sha
                 })
             });
 
             if (response.ok) {
                 alert("✅ Approved memes saved to GitHub!");
             } else {
-                alert("❌ Error saving memes to GitHub!");
+                alert("❌ Error saving memes to GitHub! Check token permissions.");
+                localStorage.removeItem("github_token");  // 🔹 Remove token if it fails (wrong token)
             }
         }
     </script>
